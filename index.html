@@ -19,6 +19,29 @@
 		color:#888888
 	}
     
+	.carousel-indicators {
+		position: absolute;
+		bottom: 0;
+		margin: 0;
+		left: 0;
+		right: 0;
+		width: auto;
+	}
+
+	.carousel-indicators li,
+	.carousel-indicators li.active {
+		width: 12px;
+		height: 12px;
+		margin: 0;
+		/* border-radius: 0; */
+		border: double white;
+		background: #888888;
+	}
+
+	.carousel-indicators li.active {
+		background: red;
+	}
+
     /* Remove the jumbotron's default bottom margin */ 
      .jumbotron {
 		margin-bottom: 0;
@@ -193,7 +216,7 @@
 				<div class="panel panel-default">
 				<div class="panel-heading">Design #18</div>
 				<div class="panel-body" style="width:100% ">
-				<div id="myCarousel18" class="carousel slide" data-ride="carousel">
+				<div id="myCarousel18" class="carousel slide" data-interval="false">
 					<!-- Indicators -->
 					<ol class="carousel-indicators">
 					  <li data-target="#myCarousel18" data-slide-to="0" class="active"></li>
@@ -244,7 +267,7 @@
 				<div class="panel panel-default">
 				<div class="panel-heading">Design #19</div>
 				<div class="panel-body" style="width:100% ">
-				<div id="myCarousel19" class="carousel slide" data-ride="carousel">
+				<div id="myCarousel19" class="carousel slide" data-interval="false">
 					<!-- Indicators -->
 					<ol class="carousel-indicators">
 					  <li data-target="#myCarousel19" data-slide-to="0" class="active"></li>
