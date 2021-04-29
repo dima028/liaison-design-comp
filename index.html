@@ -51,21 +51,34 @@
 			background: red;
 		}
 
-		* {box-sizing: border-box;}
+		.mag {
+			width: 600px;
+			margin: 0 auto;
+			float: none;
+		}
+			
+		.mag img {
+			max-width: 100%;
+		}		
 
-		.img-magnifier-container {
-			position:relative;
+		.magnify {
+			position: relative;
+			cursor: none
 		}
 
-		.img-magnifier-glass {
+		.magnify-large {
 			position: absolute;
-			border: 1px solid rgb(226, 198, 198);
-			border-radius: 20%;
-			cursor: none;
-			/*Set the size of the magnifier glass:*/
-			width: 150px;
-			height: 150px;
-			z-index: 999;
+			display: none;
+			width: 175px;
+			height: 175px;
+
+			-webkit-box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.85), 0 0 7px 7px rgba(0, 0, 0, 0.25), inset 0 0 40px 2px rgba(0, 0, 0, 0.25);
+			-moz-box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.85), 0 0 7px 7px rgba(0, 0, 0, 0.25), inset 0 0 40px 2px rgba(0, 0, 0, 0.25);
+					box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.85), 0 0 7px 7px rgba(0, 0, 0, 0.25), inset 0 0 40px 2px rgba(0, 0, 0, 0.25);
+			
+			-webkit-border-radius: 100%;
+			-moz-border-radius: 100%;
+					border-radius: 100%
 		}
 
 		/* Remove the jumbotron's default bottom margin */ 
@@ -82,61 +95,133 @@
 		}
   	</style>
 	<script>
-	function magnify(imgID, zoom) {
-		var img, glass, w, h, bw;
-		img = document.getElementById(imgID);
-		/*create magnifier glass:*/
-		glass = document.createElement("DIV");
-		glass.setAttribute("class", "img-magnifier-glass");
-		/*insert magnifier glass:*/
-		img.parentElement.insertBefore(glass, img);
-		/*set background properties for the magnifier glass:*/
-		glass.style.backgroundImage = "url('" + img.src + "')";
-		glass.style.backgroundRepeat = "no-repeat";
-		glass.style.backgroundSize = (img.width * zoom) + "px " + (img.height * zoom) + "px";
-		bw = 3;
-		w = glass.offsetWidth / 2;
-		h = glass.offsetHeight / 2;
+	!function ($) {
 
-		/*execute a function when someone moves the magnifier glass over the image:*/
-		glass.addEventListener("mousemove", moveMagnifier);
-		img.addEventListener("mousemove", moveMagnifier);
-		/*and also for touch screens:*/
-		glass.addEventListener("touchmove", moveMagnifier);
-		img.addEventListener("touchmove", moveMagnifier);
-		function moveMagnifier(e) {
-			var pos, x, y;
-			/*prevent any other actions that may occur when moving over the image*/
-			e.preventDefault();
-			/*get the cursor's x and y positions:*/
-			pos = getCursorPos(e);
-			x = pos.x;
-			y = pos.y;
-			/*prevent the magnifier glass from being positioned outside the image:*/
-			if (x > img.width - (w / zoom)) {x = img.width - (w / zoom);}
-			if (x < w / zoom) {x = w / zoom;}
-			if (y > img.height - (h / zoom)) {y = img.height - (h / zoom);}
-			if (y < h / zoom) {y = h / zoom;}
-			/*set the position of the magnifier glass:*/
-			glass.style.left = (x - w) + "px";
-			glass.style.top = (y - h) + "px";
-			/*display what the magnifier glass "sees":*/
-			glass.style.backgroundPosition = "-" + ((x * zoom) - w + bw) + "px -" + ((y * zoom) - h + bw) + "px";
+	"use strict"; // jshint ;_;
+
+
+	/* MAGNIFY PUBLIC CLASS DEFINITION
+	* =============================== */
+
+	var Magnify = function (element, options) {
+		this.init('magnify', element, options)
+	}
+
+	Magnify.prototype = {
+
+		constructor: Magnify
+
+		, init: function (type, element, options) {
+			var event = 'mousemove'
+				, eventOut = 'mouseleave';
+
+			this.type = type
+			this.$element = $(element)
+			this.options = this.getOptions(options)
+			this.nativeWidth = 0
+			this.nativeHeight = 0
+
+			this.$element.wrap('<div class="magnify" \>');
+			this.$element.parent('.magnify').append('<div class="magnify-large" \>');
+			this.$element.siblings(".magnify-large").css("background","url('" + this.$element.attr("src") + "') no-repeat");
+
+			this.$element.parent('.magnify').on(event + '.' + this.type, $.proxy(this.check, this));
+			this.$element.parent('.magnify').on(eventOut + '.' + this.type, $.proxy(this.check, this));
 		}
-		function getCursorPos(e) {
-			var a, x = 0, y = 0;
-			e = e || window.event;
-			/*get the x and y positions of the image:*/
-			a = img.getBoundingClientRect();
-			/*calculate the cursor's x and y coordinates, relative to the image:*/
-			x = e.pageX - a.left;
-			y = e.pageY - a.top;
-			/*consider any page scrolling:*/
-			x = x - window.pageXOffset;
-			y = y - window.pageYOffset;
-			return {x : x, y : y};
+
+		, getOptions: function (options) {
+			options = $.extend({}, $.fn[this.type].defaults, options, this.$element.data())
+
+			if (options.delay && typeof options.delay == 'number') {
+				options.delay = {
+					show: options.delay
+					, hide: options.delay
+				}
+			}
+			return options
+		}
+
+		, check: function (e) {
+			var container = $(e.currentTarget);
+			// console.log(e, 'e')
+			var self = container.children('img');
+			// console.log(self.length, 'self')
+			var mag = container.children(".magnify-large");
+			// console.log(mag.length, 'mag')
+
+			// Get the native dimensions of the image
+			if(!this.nativeWidth && !this.nativeHeight) {
+				var image = new Image();
+				image.src = self.attr("src");
+				console.log(image.src, "image source")
+				this.nativeWidth = image.width;
+				this.nativeHeight = image.height;
+
+			} else {
+
+				var magnifyOffset = container.offset();
+				var mx = e.pageX - magnifyOffset.left;
+				var my = e.pageY - magnifyOffset.top;
+
+				if (mx < container.width() && my < container.height() && mx > 0 && my > 0) {
+					mag.fadeIn(100);
+				} else {
+					mag.fadeOut(100);
+				}
+
+				if(mag.is(":visible"))
+				{
+					var rx = Math.round(mx/container.width()*this.nativeWidth - mag.width()/2)*-1;
+					var ry = Math.round(my/container.height()*this.nativeHeight - mag.height()/2)*-1;
+					var bgp = rx + "px " + ry + "px";
+
+					var px = mx - mag.width()/2; //cursor rel to mag
+					var py = my - mag.height()/2; //cursor rel to mag
+
+					mag.css({left: px, top: py, backgroundPosition: bgp});
+				}
+			}
+
 		}
 	}
+
+
+	/* MAGNIFY PLUGIN DEFINITION
+	* ========================= */
+
+	$.fn.magnify = function ( option ) {
+		return this.each(function () {
+			var $this = $(this)
+				, data = $this.data('magnify')
+				, options = typeof option == 'object' && option
+			if (!data) $this.data('tooltip', (data = new Magnify(this, options)))
+			if (typeof option == 'string') data[option]()
+		})
+	}
+
+	$.fn.magnify.Constructor = Magnify
+
+	$.fn.magnify.defaults = {
+		delay: 0
+	}
+
+
+	/* MAGNIFY DATA-API
+	* ================ */
+
+	$(window).on('click', function () {
+		$('[data-toggle="magnify"]').each(function () {
+			var $mag = $(this);
+			$mag.magnify()
+			// console.log($mag, "mag")
+		})
+	})
+
+	// $().on('close', function () {
+	// 		console.log("CLOSE SECONDARY")
+	// })
+
+	} ( window.jQuery );
 	</script>
 </head>
 <body>
@@ -183,309 +268,916 @@
 			<br>
 		</div>
 
-		<div class="container">    
-		<div class="row">
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-					<div class="panel-heading">Design #01</div>
-					<div class="panel-body" style="width:100% ">
-						<a class="pop">
-							<img id="imageresource" class="img-responsive" src="imgs/1.png" style="width: 100%;">
-						</a>
-					</div>
-				</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-					<div class="panel-heading">Design #02</div>
-					<div class="panel-body" style="width:100% ">
-						<a class="pop">
-							<img id="imageresource" src="imgs/2.png" class="img-responsive" style="width:100%">
-						</a>
-					</div>
-				</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-				<div class="panel-heading">Design #03</div>
-				<div class="panel-body" style="width:100% "><a class="pop"><img id="imageresource" src="imgs/3.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
-			</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-					<div class="panel-heading">Design #04</div>
-					<div class="panel-body" style="width:100% ">
-						<div id="myCarousel04" class="carousel slide" data-interval="false">
-							<!-- Indicators -->
-							<ol class="carousel-indicators">
-								<li data-target="#myCarousel04" data-slide-to="0" class="active"></li>
-								<li data-target="#myCarousel04" data-slide-to="1"></li>
-							</ol>
-						
-							<!-- Wrapper for slides -->
-							<div class="carousel-inner">
-								<div class="item active">
-									<a class="pop">
-										<img src="imgs/4.png">
+		<ul class="nav nav-pills pull-right" style="margin-right: 5vw;">
+			<li class="active"><a data-toggle="pill" href="#smicon">Small Icons</a></li>
+			<li><a data-toggle="pill" href="#mdicon">Medium Icons</a></li>
+			<li><a data-toggle="pill" href="#lgicon">Large Icons</a></li>
+		</ul>
+		<br><br><br>
+
+		<div class="tab-content">
+			<div id="smicon" class="tab-pane fade in active">
+				<div class="container">    
+					<div class="row">
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #01</div>
+								<div class="panel-body" style="width:100% ">
+									<a class="pop mag">
+										<img id="imageresource" data-toggle="magnify" class="img-responsive" src="imgs/1.png" style="width: 100%;">
 									</a>
 								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/5.png">
+							</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #02</div>
+								<div class="panel-body" style="width:100% ">
+									<a class="pop mag">
+										<img id="imageresource" data-toggle="magnify" src="imgs/2.jpeg" class="img-responsive" style="width:100%">
 									</a>
 								</div>
+							</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #03</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/3.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #04</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel04a" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel04a" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel04a" data-slide-to="1"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/4.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/5.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel04a" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel04a" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #05</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/6.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #06</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/7.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #07</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel08a" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel08a" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel08a" data-slide-to="1"></li>
+											<li data-target="#myCarousel08a" data-slide-to="2"></li>
+											<li data-target="#myCarousel08a" data-slide-to="3"></li>
+											<li data-target="#myCarousel08a" data-slide-to="4"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/8.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/9.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/12.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/13.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/16.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel08a" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel08a" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #08</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/17.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #09</div>
+							<div class="panel-body" style="width:100% ">
+							<div id="myCarousel19a" class="carousel slide" data-interval="false">
+								<!-- Indicators -->
+								<ol class="carousel-indicators">
+								  <li data-target="#myCarousel19a" data-slide-to="0" class="active"></li>
+								  <li data-target="#myCarousel19a" data-slide-to="1"></li>
+								  <li data-target="#myCarousel19a" data-slide-to="2"></li>
+								  <li data-target="#myCarousel19a" data-slide-to="3"></li>
+								  <li data-target="#myCarousel19a" data-slide-to="4"></li>
+								  <li data-target="#myCarousel19a" data-slide-to="5"></li>
+								</ol>
+							  
+								<!-- Wrapper for slides -->
+								<div class="carousel-inner">
+									
+									<div class="item active">
+										<a class="pop mag">
+											<img src="imgs/19.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/20.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/21.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/22.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/24.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/26.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+								</div>
+							  
 								<!-- Left and right controls -->
-								<a class="left carousel-control" href="#myCarousel04" data-slide="prev">
-									<span class="glyphicon glyphicon-chevron-left"></span>
-									<span class="sr-only">Previous</span>
+								<a class="left carousel-control" href="#myCarousel19a" data-slide="prev">
+								  <span class="glyphicon glyphicon-chevron-left"></span>
+								  <span class="sr-only">Previous</span>
 								</a>
-								<a class="right carousel-control" href="#myCarousel04" data-slide="next">
-									<span class="glyphicon glyphicon-chevron-right"></span>
-									<span class="sr-only">Next</span>
+								<a class="right carousel-control" href="#myCarousel19a" data-slide="next">
+								  <span class="glyphicon glyphicon-chevron-right"></span>
+								  <span class="sr-only">Next</span>
 								</a>
+							  </div>
+							</div>
+						</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #10</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel27a" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel27a" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel27a" data-slide-to="1"></li>
+											<li data-target="#myCarousel27a" data-slide-to="2"></li>
+											<li data-target="#myCarousel27a" data-slide-to="3"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/27.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/29.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/31.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/32.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel27a" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel27a" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-4 col-xs-4">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #11</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel33a" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel33a" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel33a" data-slide-to="1"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/33.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/34.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel33a" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel33a" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					</div><br><br>
+			</div>
+			<div id="mdicon" class="tab-pane fade">
+				<div class="container">    
+					<div class="row">
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #01</div>
+								<div class="panel-body" style="width:100% ">
+									<a class="pop mag">
+										<img id="imageresource" data-toggle="magnify" class="img-responsive" src="imgs/1.png" style="width: 100%;">
+									</a>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #02</div>
+								<div class="panel-body" style="width:100% ">
+									<a class="pop mag">
+										<img id="imageresource" data-toggle="magnify" src="imgs/2.jpeg" class="img-responsive" style="width:100%">
+									</a>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #03</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/3.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #04</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel04b" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel04b" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel04b" data-slide-to="1"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/4.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/5.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel04b" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel04b" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #05</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/6.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #06</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/7.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #07</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel08b" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel08b" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel08b" data-slide-to="1"></li>
+											<li data-target="#myCarousel08b" data-slide-to="2"></li>
+											<li data-target="#myCarousel08b" data-slide-to="3"></li>
+											<li data-target="#myCarousel08b" data-slide-to="4"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/8.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/9.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/12.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/13.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/16.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel08b" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel08b" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #08</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/17.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #09</div>
+							<div class="panel-body" style="width:100% ">
+							<div id="myCarousel19b" class="carousel slide" data-interval="false">
+								<!-- Indicators -->
+								<ol class="carousel-indicators">
+								  <li data-target="#myCarousel19b" data-slide-to="0" class="active"></li>
+								  <li data-target="#myCarousel19b" data-slide-to="1"></li>
+								  <li data-target="#myCarousel19b" data-slide-to="2"></li>
+								  <li data-target="#myCarousel19b" data-slide-to="3"></li>
+								  <li data-target="#myCarousel19b" data-slide-to="4"></li>
+								  <li data-target="#myCarousel19b" data-slide-to="5"></li>
+								</ol>
+							  
+								<!-- Wrapper for slides -->
+								<div class="carousel-inner">
+									
+									<div class="item active">
+										<a class="pop mag">
+											<img src="imgs/19.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/20.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/21.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/22.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/24.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/26.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+								</div>
+							  
+								<!-- Left and right controls -->
+								<a class="left carousel-control" href="#myCarousel19b" data-slide="prev">
+								  <span class="glyphicon glyphicon-chevron-left"></span>
+								  <span class="sr-only">Previous</span>
+								</a>
+								<a class="right carousel-control" href="#myCarousel19b" data-slide="next">
+								  <span class="glyphicon glyphicon-chevron-right"></span>
+								  <span class="sr-only">Next</span>
+								</a>
+							  </div>
+							</div>
+						</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #10</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel27b" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel27b" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel27b" data-slide-to="1"></li>
+											<li data-target="#myCarousel27b" data-slide-to="2"></li>
+											<li data-target="#myCarousel27b" data-slide-to="3"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/27.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/29.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/31.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/32.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel27b" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel27b" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #11</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel33b" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel33b" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel33b" data-slide-to="1"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/33.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/34.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel33b" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel33b" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					</div><br><br>
+			</div>
+			<div id="lgicon" class="tab-pane fade">
+				<div class="container">    
+					<div class="row">
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #01</div>
+								<div class="panel-body" style="width:100% ">
+									<a class="pop mag">
+										<img id="imageresource" data-toggle="magnify" class="img-responsive" src="imgs/1.png" style="width: 100%;">
+									</a>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #02</div>
+								<div class="panel-body" style="width:100% ">
+									<a class="pop mag">
+										<img id="imageresource" data-toggle="magnify" src="imgs/2.jpeg" class="img-responsive" style="width:100%">
+									</a>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #03</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/3.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #04</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel04" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel04" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel04" data-slide-to="1"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/4.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/5.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel04" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel04" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #05</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/6.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #06</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/7.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #07</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel08" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel08" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel08" data-slide-to="1"></li>
+											<li data-target="#myCarousel08" data-slide-to="2"></li>
+											<li data-target="#myCarousel08" data-slide-to="3"></li>
+											<li data-target="#myCarousel08" data-slide-to="4"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/8.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/9.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/12.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/13.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/16.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel08" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel08" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #08</div>
+							<div class="panel-body" style="width:100% "><a class="pop mag"><img id="imageresource" data-toggle="magnify" src="imgs/17.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
+						</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+							<div class="panel-heading">Design #09</div>
+							<div class="panel-body" style="width:100% ">
+							<div id="myCarousel19" class="carousel slide" data-interval="false">
+								<!-- Indicators -->
+								<ol class="carousel-indicators">
+								  <li data-target="#myCarousel19" data-slide-to="0" class="active"></li>
+								  <li data-target="#myCarousel19" data-slide-to="1"></li>
+								  <li data-target="#myCarousel19" data-slide-to="2"></li>
+								  <li data-target="#myCarousel19" data-slide-to="3"></li>
+								  <li data-target="#myCarousel19" data-slide-to="4"></li>
+								  <li data-target="#myCarousel19" data-slide-to="5"></li>
+								</ol>
+							  
+								<!-- Wrapper for slides -->
+								<div class="carousel-inner">
+									
+									<div class="item active">
+										<a class="pop mag">
+											<img src="imgs/19.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/20.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/21.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/22.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/24.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+									<div class="item">
+										<a class="pop mag">
+											<img src="imgs/26.png" data-toggle="magnify" style="width: 100%;">
+										</a>
+									</div>
+								</div>
+							  
+								<!-- Left and right controls -->
+								<a class="left carousel-control" href="#myCarousel19" data-slide="prev">
+								  <span class="glyphicon glyphicon-chevron-left"></span>
+								  <span class="sr-only">Previous</span>
+								</a>
+								<a class="right carousel-control" href="#myCarousel19" data-slide="next">
+								  <span class="glyphicon glyphicon-chevron-right"></span>
+								  <span class="sr-only">Next</span>
+								</a>
+							  </div>
+							</div>
+						</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #10</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel27" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel27" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel27" data-slide-to="1"></li>
+											<li data-target="#myCarousel27" data-slide-to="2"></li>
+											<li data-target="#myCarousel27" data-slide-to="3"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/27.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/29.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/31.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/32.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel27" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel27" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+							<div class="panel panel-default">
+								<div class="panel-heading">Design #11</div>
+								<div class="panel-body" style="width:100% ">
+									<div id="myCarousel33" class="carousel slide" data-interval="false">
+										<!-- Indicators -->
+										<ol class="carousel-indicators">
+											<li data-target="#myCarousel33" data-slide-to="0" class="active"></li>
+											<li data-target="#myCarousel33" data-slide-to="1"></li>
+										</ol>
+									
+										<!-- Wrapper for slides -->
+										<div class="carousel-inner">
+											<div class="item active">
+												<a class="pop mag">
+													<img src="imgs/33.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<div class="item">
+												<a class="pop mag">
+													<img src="imgs/34.png" data-toggle="magnify" style="width: 100%;">
+												</a>
+											</div>
+											<!-- Left and right controls -->
+											<a class="left carousel-control" href="#myCarousel33" data-slide="prev">
+												<span class="glyphicon glyphicon-chevron-left"></span>
+												<span class="sr-only">Previous</span>
+											</a>
+											<a class="right carousel-control" href="#myCarousel33" data-slide="next">
+												<span class="glyphicon glyphicon-chevron-right"></span>
+												<span class="sr-only">Next</span>
+											</a>
+										</div>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
+				<br><br>
 			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-				<div class="panel-heading">Design #05</div>
-				<div class="panel-body" style="width:100% "><a class="pop"><img id="imageresource" src="imgs/6.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
-			</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-				<div class="panel-heading">Design #06</div>
-				<div class="panel-body" style="width:100% "><a class="pop"><img id="imageresource" src="imgs/7.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
-			</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-					<div class="panel-heading">Design #07</div>
-					<div class="panel-body" style="width:100% ">
-						<div id="myCarousel08" class="carousel slide" data-interval="false">
-							<!-- Indicators -->
-							<ol class="carousel-indicators">
-								<li data-target="#myCarousel08" data-slide-to="0" class="active"></li>
-								<li data-target="#myCarousel08" data-slide-to="1"></li>
-								<li data-target="#myCarousel08" data-slide-to="2"></li>
-								<li data-target="#myCarousel08" data-slide-to="3"></li>
-								<li data-target="#myCarousel08" data-slide-to="4"></li>
-							</ol>
-						
-							<!-- Wrapper for slides -->
-							<div class="carousel-inner">
-								<div class="item active">
-									<a class="pop">
-										<img src="imgs/8.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/9.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/12.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/13.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/16.png">
-									</a>
-								</div>
-								<!-- Left and right controls -->
-								<a class="left carousel-control" href="#myCarousel08" data-slide="prev">
-									<span class="glyphicon glyphicon-chevron-left"></span>
-									<span class="sr-only">Previous</span>
-								</a>
-								<a class="right carousel-control" href="#myCarousel08" data-slide="next">
-									<span class="glyphicon glyphicon-chevron-right"></span>
-									<span class="sr-only">Next</span>
-								</a>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-				<div class="panel-heading">Design #08</div>
-				<div class="panel-body" style="width:100% "><a class="pop"><img id="imageresource" src="imgs/17.png" class="img-responsive" style="width:100%" alt="Image"></a></div>
-			</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-				<div class="panel-heading">Design #09</div>
-				<div class="panel-body" style="width:100% ">
-				<div id="myCarousel19" class="carousel slide" data-interval="false">
-					<!-- Indicators -->
-					<ol class="carousel-indicators">
-					  <li data-target="#myCarousel19" data-slide-to="0" class="active"></li>
-					  <li data-target="#myCarousel19" data-slide-to="1"></li>
-					  <li data-target="#myCarousel19" data-slide-to="2"></li>
-					  <li data-target="#myCarousel19" data-slide-to="3"></li>
-					  <li data-target="#myCarousel19" data-slide-to="4"></li>
-					  <li data-target="#myCarousel19" data-slide-to="5"></li>
-					</ol>
-				  
-					<!-- Wrapper for slides -->
-					<div class="carousel-inner">
-						
-						<div class="item active">
-							<a class="pop">
-								<img src="imgs/19.png">
-							</a>
-						</div>
-						<div class="item">
-							<a class="pop">
-								<img src="imgs/20.png">
-							</a>
-						</div>
-						<div class="item">
-							<a class="pop">
-								<img src="imgs/21.png">
-							</a>
-						</div>
-						<div class="item">
-							<a class="pop">
-								<img src="imgs/22.png">
-							</a>
-						</div>
-						<div class="item">
-							<a class="pop">
-								<img src="imgs/24.png">
-							</a>
-						</div>
-						<div class="item">
-							<a class="pop">
-								<img src="imgs/26.png">
-							</a>
-						</div>
-					</div>
-				  
-					<!-- Left and right controls -->
-					<a class="left carousel-control" href="#myCarousel19" data-slide="prev">
-					  <span class="glyphicon glyphicon-chevron-left"></span>
-					  <span class="sr-only">Previous</span>
-					</a>
-					<a class="right carousel-control" href="#myCarousel19" data-slide="next">
-					  <span class="glyphicon glyphicon-chevron-right"></span>
-					  <span class="sr-only">Next</span>
-					</a>
-				  </div>
-				</div>
-			</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-					<div class="panel-heading">Design #10</div>
-					<div class="panel-body" style="width:100% ">
-						<div id="myCarousel27" class="carousel slide" data-interval="false">
-							<!-- Indicators -->
-							<ol class="carousel-indicators">
-								<li data-target="#myCarousel27" data-slide-to="0" class="active"></li>
-								<li data-target="#myCarousel27" data-slide-to="1"></li>
-								<li data-target="#myCarousel27" data-slide-to="2"></li>
-								<li data-target="#myCarousel27" data-slide-to="3"></li>
-							</ol>
-						
-							<!-- Wrapper for slides -->
-							<div class="carousel-inner">
-								<div class="item active">
-									<a class="pop">
-										<img src="imgs/27.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/29.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/31.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/32.png">
-									</a>
-								</div>
-								<!-- Left and right controls -->
-								<a class="left carousel-control" href="#myCarousel27" data-slide="prev">
-									<span class="glyphicon glyphicon-chevron-left"></span>
-									<span class="sr-only">Previous</span>
-								</a>
-								<a class="right carousel-control" href="#myCarousel27" data-slide="next">
-									<span class="glyphicon glyphicon-chevron-right"></span>
-									<span class="sr-only">Next</span>
-								</a>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class="col-lg-4 col-md-4 col-sm-6 col-xs-6">
-				<div class="panel panel-default">
-					<div class="panel-heading">Design #11</div>
-					<div class="panel-body" style="width:100% ">
-						<div id="myCarousel33" class="carousel slide" data-interval="false">
-							<!-- Indicators -->
-							<ol class="carousel-indicators">
-								<li data-target="#myCarousel33" data-slide-to="0" class="active"></li>
-								<li data-target="#myCarousel33" data-slide-to="1"></li>
-							</ol>
-						
-							<!-- Wrapper for slides -->
-							<div class="carousel-inner">
-								<div class="item active">
-									<a class="pop">
-										<img src="imgs/33.png">
-									</a>
-								</div>
-								<div class="item">
-									<a class="pop">
-										<img src="imgs/34.png">
-									</a>
-								</div>
-								<!-- Left and right controls -->
-								<a class="left carousel-control" href="#myCarousel33" data-slide="prev">
-									<span class="glyphicon glyphicon-chevron-left"></span>
-									<span class="sr-only">Previous</span>
-								</a>
-								<a class="right carousel-control" href="#myCarousel33" data-slide="next">
-									<span class="glyphicon glyphicon-chevron-right"></span>
-									<span class="sr-only">Next</span>
-								</a>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
+		  </div>
 		</div>
-		</div><br><br>
 
-
-		<script>
+		<!-- <script>
 		$(function() {
 			$('.pop').on('click', function() {
 				$('.imagepreview').attr('src', $(this).find('img').attr('src'));
-				$('#imagemodal').modal('show');   
+				// $('.imagepreview').attr('data-toggle', "magnify");
+				$('#imagemodal').modal('show');
+				console.log($('.imagepreview').attr('src'))
 			});		
 		});
 		</script>
-		
-
+		 -->
+		<!-- <script>
+		$(function() {
+			$('.modal-dialog').hover(
+				function () {
+					$(this).animate({'zoom': 1.5}, 0);
+					$(this).css('user-select', 'none' );
+				},
+				function () {
+					$(this).animate({'zoom': 1}, 0);
+			});
+		});
+		</script> -->
 		<!-- Creates the bootstrap modal where the image will appear -->
-		<div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+		<!-- <div class="modal fade" id="imagemodal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
 			<div class="modal-dialog modal-md">
 				<div class="modal-content">
 					<div class="modal-body">
@@ -493,21 +1185,11 @@
 							<span aria-hidden="true">&times;</span>
 							<span class="sr-only">Close</span>
 						</button>
-						<img src="" id="myimage" class="img-magnifier-container imagepreview" style="width: 100%;" >
+						<img class="imagepreview" style="width: 100%;">
 					</div>
 				</div>
 			</div>
-		</div>
-	</div>
-
-	<script>
-	$(function() {
-		$('.pop').on('click', function() {  
-			magnify("myimage", 2);
-		});		
-	});
-	</script>
-
+		</div> -->
 
 	<div id="vote" class="tab-pane fade">
 		<iframe src="https://docs.google.com/forms/d/e/1FAIpQLSedO2NTPzTGn5KjFrsmPPJ2fghRHjCh7hg413RmV6DFOUnBrw/viewform?embedded=true" width="100%" height="1100px" scrolling="no" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>
